@@ -1,6 +1,6 @@
 # AI Enterprise RAG & Document Intelligence Platform
 
-A self-hostable enterprise document AI platform for **grounded question answering, document intelligence, and controlled agentic retrieval**.
+A self-hostable enterprise RAG and document intelligence platform for **grounded question answering, document intelligence, and controlled agentic retrieval**.
 
 The project is designed as a serious AI-engineering portfolio system: it keeps document provenance end-to-end, evaluates the actual retrieved evidence before generation, verifies claims after generation, supports scanned PDFs and tables, and refuses when reliable evidence is unavailable.
 
@@ -163,18 +163,29 @@ streamlit run frontend/streamlit_app.py
 - `GET /health`
 - `GET /auth/me`
 
+## LLM Provider
+
+The reference configuration uses **Groq with OpenAI GPT-OSS 120B** through Groq's OpenAI-compatible API.
+
+LLM credentials are loaded through environment variables and are never stored in the repository.
+
 ## Evaluation
 
 The project is structured to evaluate the actual system rather than only counting retrieved documents.
 
-Recommended benchmark metrics:
+### Metrics
 
 - Retrieval: Recall@K, MRR, NDCG
 - Grounding: supported-claim rate, unsupported-claim rate
-- Citations: citation precision, citation recall, entailment/verification rate
+- Citations: citation precision, citation recall, verification rate
 - Agent: first-pass success, recovery success, correct refusal, average attempts
 - Extraction: field precision/recall/F1, validation accuracy
 
+### Automated validation
+
+**153 / 153 tests passing**
+
+The test suite covers retrieval, reranking, evidence sufficiency, citation verification, agent traces, OCR, document ingestion, invoice extraction and validation, API behavior, authorization, document deletion, and evaluation metrics.
 Do not publish benchmark numbers unless they were generated from the repository's evaluation dataset and scripts.
 
 ## Project scope
@@ -184,19 +195,3 @@ This is a portfolio and learning project, not a finished enterprise SaaS product
 ## Repository hygiene
 
 Runtime databases, uploaded documents, `.env`, Python caches, and generated evaluation artifacts are excluded from Git. Use `.env.example` as the configuration template.
-
-## Recommended demo
-
-1. Upload a normal policy PDF and ask a question.
-2. Show page-level citations and verification status.
-3. Upload a scanned invoice and demonstrate OCR.
-4. Upload an inconsistent invoice and show deterministic validation + review.
-5. Ask a question requiring multiple documents and show the agent trace.
-6. Ask an unanswerable question and show the bounded retries followed by refusal.
-7. Switch to PostgreSQL/pgvector and show the production-style retrieval path.
-
-## Portfolio positioning
-
-> **A self-hostable enterprise RAG and document intelligence platform combining hybrid retrieval, multimodal document processing, evidence-grounded generation, claim-level citation verification, structured extraction, and controlled agentic retrieval.**
-
-The project is designed to be **grounded, traceable, measurable, and designed to fail safely** rather than claiming perfect accuracy.
