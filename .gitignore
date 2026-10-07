@@ -1,0 +1,28 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+
+# Runtime data
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/uploads/*
+!data/uploads/.gitkeep
+data/evaluation_results.json
+*.log
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+
+# secrets / local artifacts
+*.pem
+*.key

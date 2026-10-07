@@ -1,0 +1,34 @@
+version: "3.9"
+
+# Provisions PostgreSQL with the pgvector extension for a production-style
+# setup. The application itself works without Docker (SQLite by default -
+# see .env.example); use this when you want a real Postgres instance.
+#
+# Usage:
+#   docker compose up -d
+#   # then set DATABASE_URL in .env to:
+#   # postgresql+psycopg://postgres:postgres@localhost:5432/enterprise_rag
+#   python scripts/init_db.py
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ai-enterprise-rag-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: enterprise_rag
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init_pgvector.sql:/docker-entrypoint-initdb.d/init_pgvector.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
