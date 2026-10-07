@@ -1,75 +1,202 @@
 # AI Enterprise RAG & Document Intelligence Platform
 
-A self-hostable enterprise RAG and document intelligence platform combining **hybrid retrieval, evidence-grounded generation, citation verification, multimodal document processing, structured extraction, and controlled agentic retrieval**.
+A self-hostable enterprise document AI platform for **grounded question answering, document intelligence, and controlled agentic retrieval**.
 
-The system is designed as a serious AI-engineering portfolio project focused on **grounding, traceability, verification, measurable retrieval, and safe failure** rather than simply generating answers from documents.
+The project is designed as a serious AI-engineering portfolio system: it keeps document provenance end-to-end, evaluates the actual retrieved evidence before generation, verifies claims after generation, supports scanned PDFs and tables, and refuses when reliable evidence is unavailable.
 
----
+## Core capabilities
 
-## Why This Project Is Different
-
-This is not a basic "upload a PDF and chat with it" application.
-
-The platform is designed around an explicit **evidence → generation → verification** pipeline:
-
-- Dense semantic retrieval is combined with BM25 lexical retrieval.
-- Retrieved evidence is evaluated before generation.
-- Answers are generated only from retrieved evidence.
-- Generated claims are independently verified against source evidence.
-- Citations are grounded to actual document chunks and page provenance.
-- Unsupported questions can result in a safe refusal.
-- Agentic retrieval is bounded to prevent uncontrolled loops.
-- Tables are indexed as first-class retrieval units.
-- Scanned documents can use OCR fallback.
-- Structured invoice extraction is followed by deterministic financial validation.
-- Low-confidence or inconsistent extractions can be routed to human review.
-
----
-
-# Core Capabilities
-
-## 1. Hybrid RAG + Citation Verification
-
-- Dense semantic retrieval
-- BM25 keyword retrieval
+### 1. Hybrid RAG + citation verification
+- Dense semantic retrieval + BM25 keyword retrieval
 - Configurable reranking
-- Reciprocal Rank Fusion (RRF)
 - Authorization-aware retrieval
 - Page-level provenance
 - Evidence sufficiency evaluation
 - Claim-level citation verification
-- Citation grounding against retrieved chunks
-- Safe refusal when reliable evidence is unavailable
+- Safe refusal when claims cannot be grounded
 
-### RAG Flow
+### 2. Multimodal document intelligence
+- Native PDF text extraction
+- OCR fallback for scanned pages
+- Table extraction
+- First-class table chunks for retrieval
+- Invoice field extraction
+- `Decimal`-safe monetary validation
+- Field-level confidence signals
+- Human review queue
+
+### 3. Controlled agentic RAG
+- Query analysis
+- Bounded multi-hop planning
+- Evidence-driven retrieval loop
+- Query reformulation
+- Maximum 3 retrieval attempts
+- Persistent attempt trace
+- Persistent citations/evidence relationships
+- Refusal after repeated evidence failure
+
+## Architecture
 
 ```text
-User Question
-      |
-      v
-Query Analysis
-      |
-      v
-Hybrid Retrieval
-(Dense + BM25)
-      |
-      v
-Reranking
-      |
-      v
-Evidence Layer
-      |
-      +--> Evidence Sufficiency
-      +--> Provenance
-      +--> Claims
-      +--> Citations
-      |
-      v
-LLM Generation
-      |
-      v
-Independent Claim Verification
-      |
-      +---- Supported ----> Answer + Citations
-      |
-      +---- Unsupported --> Refusal
+Streamlit UI
+    |
+    v
+FastAPI API
+    |
+    v
+Application Services
+    |
+    +-------------------+--------------------+
+    |                   |                    |
+Document Intelligence  Retrieval          RAG/Agent
+    |                   |                    |
+Parse/OCR/Tables   Dense + BM25         Plan/Retrieve
+Chunk/Embed        Rerank               Evaluate
+    |                   |                Generate
+    +-------------------+                    |
+                |                            |
+                v                            v
+          Evidence Layer <-------------------+
+          |  sufficiency
+          |  provenance
+          |  claims
+          |  verification
+          |  citations
+                |
+                v
+      PostgreSQL + pgvector
+      SQLite offline fallback
+                |
+                v
+       Private/encrypted storage
+```
+
+## Data flow
+
+```text
+PDF upload
+  -> security validation
+  -> private storage
+  -> page parsing / OCR
+  -> table extraction
+  -> text + table chunks
+  -> embeddings
+  -> vector + BM25 indexes
+  -> authorization-aware retrieval
+  -> reranking
+  -> evidence evaluation
+  -> answer generation
+  -> claim extraction / citation grounding
+  -> independent verification
+  -> cited answer OR refusal
+  -> audit record
+```
+
+## Storage and security
+
+The portfolio build intentionally keeps security focused rather than implementing a full enterprise IAM product.
+
+- Local user/role model (`ADMIN` / `USER`)
+- Document ownership and explicit read permissions
+- Retrieval is filtered **before** dense/BM25 search
+- Upload size, extension, PDF magic-byte and page-limit checks
+- Configurable CORS instead of wildcard credentials
+- Secrets loaded from environment variables
+- Optional Fernet encryption for uploaded documents
+- SHA-256 document fingerprinting
+- Audit events for uploads and queries
+
+For a real deployment, supply `STORAGE_ENCRYPTION_KEY` from a secret manager/KMS. The repository never contains secrets or runtime databases.
+
+## Database modes
+
+### SQLite
+Zero-setup development and deterministic tests. Dense search uses a brute-force Python fallback.
+
+### PostgreSQL + pgvector
+Production-style retrieval. The embedding column is a real `VECTOR(n)` column and `init_db()` creates an HNSW cosine index. Dense similarity is executed in PostgreSQL rather than loading the full corpus into Python.
+
+Start PostgreSQL:
+
+```bash
+docker compose up -d
+```
+
+Then configure:
+
+```env
+DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/enterprise_rag
+```
+
+## Running locally
+
+```bash
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
+
+pip install -r requirements.txt
+copy .env.example .env   # Windows
+# cp .env.example .env  # macOS/Linux
+
+python scripts/init_db.py
+uvicorn app.main:app --reload
+```
+
+Streamlit:
+
+```bash
+streamlit run frontend/streamlit_app.py
+```
+
+## API highlights
+
+- `POST /documents/upload`
+- `POST /documents/process?document_id=...`
+- `GET /documents`
+- `POST /query`
+- `POST /agent/query`
+- `GET /agent/trace/{agent_run_id}`
+- `GET /review-queue`
+- `GET /extractions/{extraction_id}`
+- `POST /review/{extraction_id}`
+- `GET /health`
+- `GET /auth/me`
+
+## Evaluation
+
+The project is structured to evaluate the actual system rather than only counting retrieved documents.
+
+Recommended benchmark metrics:
+
+- Retrieval: Recall@K, MRR, NDCG
+- Grounding: supported-claim rate, unsupported-claim rate
+- Citations: citation precision, citation recall, entailment/verification rate
+- Agent: first-pass success, recovery success, correct refusal, average attempts
+- Extraction: field precision/recall/F1, validation accuracy
+
+Do not publish benchmark numbers unless they were generated from the repository's evaluation dataset and scripts.
+
+## Project scope
+
+This is a portfolio and learning project, not a finished enterprise SaaS product. It intentionally does **not** implement SSO, multi-tenancy, Kubernetes, distributed queues, streaming, or a large-scale ANN service beyond pgvector. The focus is correctness and depth in RAG/document-AI engineering.
+
+## Repository hygiene
+
+Runtime databases, uploaded documents, `.env`, Python caches, and generated evaluation artifacts are excluded from Git. Use `.env.example` as the configuration template.
+
+## Recommended demo
+
+1. Upload a normal policy PDF and ask a question.
+2. Show page-level citations and verification status.
+3. Upload a scanned invoice and demonstrate OCR.
+4. Upload an inconsistent invoice and show deterministic validation + review.
+5. Ask a question requiring multiple documents and show the agent trace.
+6. Ask an unanswerable question and show the bounded retries followed by refusal.
+7. Switch to PostgreSQL/pgvector and show the production-style retrieval path.
+
+## Portfolio positioning
+
+> **A self-hostable enterprise RAG and document intelligence platform combining hybrid retrieval, multimodal document processing, evidence-grounded generation, claim-level citation verification, structured extraction, and controlled agentic retrieval.**
+
+The project is designed to be **grounded, traceable, measurable, and designed to fail safely** rather than claiming perfect accuracy.
